@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Focus Sentry</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+    <h1>Focus Sentry</h1>
+
+    <nav>
+        <a href="/">Current session</a> |
+        <a href="/history">History</a>
+    </nav>
+
+    <form id="session-form">
+        <h2>Session configuration</h2>
+
+        <label>
+            Duration (minutes):
+            <input type="number" name="duration" value="60" min="1" required />
+        </label>
+        <br />
+
+        <label>
+            Alert threshold (seconds away from screen):
+            <input type="number" name="alert_threshold" value="2.5" min="0.5" step="0.5" required />
+        </label>
+        <br />
+
+        <label>
+            Alert mode:
+            <select name="alert_mode">
+                <option value="popup" selected>Popup</option>
+                <option value="sound">Sound</option>
+                <option value="both">Popup and sound</option>
+            </select>
+        </label>
+        <br />
+
+        <h3>Notifications</h3>
+
+        <label>
+            Email for summary:
+            <input type="email" name="email" />
+        </label>
+        <label>
+            <input type="checkbox" name="send_email" checked />
+            Send email summary
+        </label>
+        <br />
+
+        <label>
+            Phone for SMS summary (with country code):
+            <input type="tel" name="phone" />
+        </label>
+        <label>
+            <input type="checkbox" name="send_sms" />
+            Send SMS summary
+        </label>
+        <br />
+
+        <button type="submit">Start focus session</button>
+    </form>
+
+    <div id="session-panel" style="display: none; margin-top: 1rem;">
+        <h2>Session in progress</h2>
+        <p id="timer">Time left: 0:00</p>
+        <p id="focus-status">Focus state: unknown</p>
+
+        <video id="video" class="video-preview" autoplay playsinline width="320" height="240"></video>
+        <br />
+        <button id="end-session-button" type="button">End session now</button>
+    </div>
+
+    <div id="summary-panel" style="display: none; margin-top: 1rem;">
+        <h2>Session summary</h2>
+        <p id="summary-text"></p>
+    </div>
+
+    <div id="session-status" style="margin-top: 1rem;"></div>
+
+    <audio id="alert-sound">
+        <source src="/static/alert-beep.mp3" type="audio/mpeg" />
+    </audio>
+
+    <script src="/static/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Focus Sentry - History</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+    <h1>Focus Sentry</h1>
+
+    <nav>
+        <a href="/">Current session</a> |
+        <a href="/history">History</a>
+    </nav>
+
+    <h2>Recent sessions</h2>
+
+    {% if sessions and sessions|length > 0 %}
+        <table border="1" cellpadding="4" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>Started at (UTC)</th>
+                    <th>Duration (min)</th>
+                    <th>Total (s)</th>
+                    <th>Focus %</th>
+                    <th>Breaks</th>
+                    <th>Ended early</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in sessions %}
+                <tr>
+                    <td>{{ s.created_at }}</td>
+                    <td>{{ s.duration_minutes }}</td>
+                    <td>{{ s.total_seconds or "" }}</td>
+                    <td>{{ s.focus_percent if s.focus_percent is not none else "" }}</td>
+                    <td>{{ s.breaks_count or "" }}</td>
+                    <td>{{ "Yes" if s.ended_early else "No" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h3>Focus percentage over sessions</h3>
+        <canvas id="focusChart" width="600" height="300"></canvas>
+
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+            const sessionsData = {{ sessions | tojson }};
+        </script>
+        <script src="/static/history.js"></script>
+    {% else %}
+        <p>No sessions recorded yet.</p>
+    {% endif %}
+</body>
+</html>
