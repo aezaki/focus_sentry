@@ -3,96 +3,188 @@
 <head>
     <meta charset="UTF-8" />
     <title>Focus Sentry</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/styles.css?v=2"/>
 </head>
 <body>
-    <h1>Focus Sentry</h1>
+<div class="app-shell">
+    <header class="app-header">
+        <div class="app-header-inner">
+            <div class="app-title">Focus <span>Sentry</span></div>
+            <nav class="app-nav">
+                <a href="/" class="active">Current session</a>
+                <a href="/history">History</a>
+            </nav>
+        </div>
+    </header>
 
-    <nav>
-        <a href="/">Current session</a> |
-        <a href="/history">History</a>
-    </nav>
+    <main class="app-main">
+        <div class="app-main-inner">
 
-    <form id="session-form">
-        <h2>Session configuration</h2>
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">Session configuration</div>
+                        <div class="card-subtitle">
+                            Set your focus window and alert preferences, then start tracking.
+                        </div>
+                    </div>
+                    <div class="tag">Webcam based focus tracker</div>
+                </div>
 
-        <label>
-            Duration (minutes):
-            <input type="number" name="duration" value="60" min="1" required />
-        </label>
-        <br />
+                <form id="session-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="duration-input">Duration (minutes)</label>
+                            <input
+                                id="duration-input"
+                                type="number"
+                                name="duration"
+                                value="60"
+                                min="1"
+                                required
+                            />
+                        </div>
 
-        <label>
-            Alert threshold (seconds away from screen):
-            <input type="number" name="alert_threshold" value="2.5" min="0.5" step="0.5" required />
-        </label>
-        <br />
+                        <div class="form-group">
+                            <label for="threshold-input">Alert threshold (seconds away from screen)</label>
+                            <input
+                                id="threshold-input"
+                                type="number"
+                                name="alert_threshold"
+                                value="2.5"
+                                min="0.5"
+                                step="0.5"
+                                required
+                            />
+                        </div>
 
-        <label>
-            Alert mode:
-            <select name="alert_mode">
-                <option value="popup" selected>Popup</option>
-                <option value="sound">Sound</option>
-                <option value="both">Popup and sound</option>
-            </select>
-        </label>
-        <br />
+                        <div class="form-group">
+                            <label for="alert-mode-select">Alert mode</label>
+                            <select id="alert-mode-select" name="alert_mode">
+                                <option value="popup" selected>Popup</option>
+                                <option value="sound">Sound</option>
+                                <option value="both">Popup and sound</option>
+                            </select>
+                        </div>
 
-        <h3>Notifications</h3>
+                        <div class="form-group">
+                            <label for="email-input">Email for summary</label>
+                            <input
+                                id="email-input"
+                                type="email"
+                                name="email"
+                                placeholder="you@example.com"
+                            />
+                            <div class="form-inline">
+                                <input type="checkbox" name="send_email" checked />
+                                <span>Send email summary</span>
+                            </div>
+                        </div>
 
-        <label>
-            Email for summary:
-            <input type="email" name="email" />
-        </label>
-        <label>
-            <input type="checkbox" name="send_email" checked />
-            Send email summary
-        </label>
-        <br />
+                        <div class="form-group">
+                            <label for="phone-input">Phone for SMS summary (with country code)</label>
+                            <input
+                                id="phone-input"
+                                type="tel"
+                                name="phone"
+                                placeholder="+1..."
+                            />
+                            <div class="form-inline">
+                                <input type="checkbox" name="send_sms" />
+                                <span>Send SMS summary</span>
+                            </div>
+                        </div>
 
-        <label>
-            Phone for SMS summary (with country code):
-            <input type="tel" name="phone" />
-        </label>
-        <label>
-            <input type="checkbox" name="send_sms" />
-            Send SMS summary
-        </label>
-        <br />
+                        <div class="form-group">
+                            <label>Defaults</label>
+                            <div class="form-inline">
+                                <input type="checkbox" id="save-defaults" />
+                                <span>Save these settings as my default</span>
+                            </div>
+                        </div>
+                    </div>
 
-        <label>
-            <input type="checkbox" id="save-defaults" />
-            Save these settings as my default
-        </label>
-        <br />
+                    <div class="button-row">
+                        <button type="submit" class="btn btn-primary">
+                            Start focus session
+                        </button>
+                    </div>
+                </form>
 
-        <button type="submit">Start focus session</button>
-    </form>
+                <div id="session-status"></div>
+            </div>
 
-    <div id="session-panel" style="display: none; margin-top: 1rem;">
-        <h2>Session in progress</h2>
-        <p id="timer">Time left: 0:00</p>
-        <p id="focus-status">Focus state: unknown</p>
-        <p id="live-stats">Focused: 0 percent so far, breaks: 0</p>
+            <div id="session-panel" class="card" style="display: none;">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">Session in progress</div>
+                        <div class="card-subtitle">
+                            Keep your eyes on the screen, we will let you know when you drift.
+                        </div>
+                    </div>
+                </div>
 
-        <div id="focus-banner" class="focus-banner hidden"></div>
+                <div class="session-layout">
+                    <div class="session-left">
+                        <div class="session-metrics">
+                            <p>
+                                <span class="metric-label">Timer:</span>
+                                <span id="timer" class="metric-value">Time left: 0:00</span>
+                            </p>
+                            <p>
+                                <span class="metric-label">State:</span>
+                                <span id="focus-status" class="metric-value">Focus state: unknown</span>
+                            </p>
+                            <p>
+                                <span class="metric-label">Live stats:</span>
+                                <span id="live-stats" class="metric-value">
+                                    Focused: 0 percent so far, breaks: 0
+                                </span>
+                            </p>
+                        </div>
 
-        <video id="video" class="video-preview" autoplay playsinline width="320" height="240"></video>
-        <br />
-        <button id="end-session-button" type="button">End session now</button>
-    </div>
+                        <div id="focus-banner" class="focus-banner hidden"></div>
+                    </div>
 
-    <div id="summary-panel" style="display: none; margin-top: 1rem;">
-        <h2>Session summary</h2>
-        <p id="summary-text"></p>
-    </div>
+                    <div class="session-right">
+                        <div class="video-wrapper">
+                            <video
+                                id="video"
+                                class="video-preview"
+                                autoplay
+                                playsinline
+                                width="320"
+                                height="240"
+                            ></video>
+                        </div>
+                        <div class="button-row" style="justify-content: flex-start; margin-top: 0.5rem;">
+                            <button
+                                id="end-session-button"
+                                type="button"
+                                class="btn btn-ghost"
+                            >
+                                End session now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-    <div id="session-status" style="margin-top: 1rem;"></div>
+            <div id="summary-panel" class="card" style="display: none;">
+                <div class="card-header">
+                    <div class="card-title">Session summary</div>
+                </div>
+                <p id="summary-text"></p>
+            </div>
 
-    <audio id="alert-sound">
-        <source src="/static/alert-beep.mp3" type="audio/mpeg" />
-    </audio>
+        </div>
+    </main>
+</div>
 
-    <script src="/static/main.js"></script>
+<audio id="alert-sound">
+    <source src="/static/alert-beep.mp3" type="audio/mpeg" />
+</audio>
+
+<script src="/static/main.js"></script>
 </body>
 </html>

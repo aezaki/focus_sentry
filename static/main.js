@@ -191,6 +191,7 @@ function resetTracking() {
 
     focusStatus.textContent = "Focus state: unknown";
     video.classList.remove("video-focused", "video-unfocused");
+    video.style.borderColor = "transparent";
     hideBanner();
     updateLiveStats();
 }
@@ -290,6 +291,7 @@ function handleFocusState(isFocused) {
         focusStatus.textContent = "Focus state: focused";
         video.classList.add("video-focused");
         video.classList.remove("video-unfocused");
+        video.style.borderColor = "#16a34a";
     } else {
         if (currentState !== "unfocused") {
             currentState = "unfocused";
@@ -298,6 +300,7 @@ function handleFocusState(isFocused) {
             focusStatus.textContent = "Focus state: unfocused";
             video.classList.add("video-unfocused");
             video.classList.remove("video-focused");
+            video.style.borderColor = "#dc2626";
         } else {
             if (
                 !alertTriggeredThisBreak &&
@@ -354,10 +357,21 @@ function showBanner(message, kind) {
     focusBanner.textContent = message;
     focusBanner.classList.remove("hidden", "banner-warning", "banner-info", "visible");
 
+    // reset inline styles
+    focusBanner.style.backgroundColor = "";
+    focusBanner.style.color = "";
+    focusBanner.style.border = "";
+
     if (kind === "warning") {
         focusBanner.classList.add("banner-warning");
+        focusBanner.style.backgroundColor = "#fee2e2";
+        focusBanner.style.color = "#b91c1c";
+        focusBanner.style.border = "1px solid #fecaca";
     } else if (kind === "info") {
         focusBanner.classList.add("banner-info");
+        focusBanner.style.backgroundColor = "#dcfce7";
+        focusBanner.style.color = "#166534";
+        focusBanner.style.border = "1px solid #bbf7d0";
     }
 
     requestAnimationFrame(() => {
@@ -378,6 +392,9 @@ function hideBanner() {
     setTimeout(() => {
         focusBanner.classList.add("hidden");
         focusBanner.textContent = "";
+        focusBanner.style.backgroundColor = "";
+        focusBanner.style.color = "";
+        focusBanner.style.border = "";
     }, 250);
 }
 
@@ -507,5 +524,5 @@ function endSessionNow(endedEarly) {
         });
 }
 
-// load defaults once DOM is ready
+// load defaults once
 loadDefaultsFromStorage();
