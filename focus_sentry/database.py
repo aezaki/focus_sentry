@@ -1,7 +1,7 @@
 # focus_sentry/database.py
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
-from datetime import datetime
 from typing import Optional
 
 DB_PATH = Path(__file__).resolve().parent.parent / "focus_sentry.db"
@@ -16,8 +16,7 @@ def get_connection() -> sqlite3.Connection:
 def init_db() -> None:
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute(
-        """
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS focus_sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             created_at TEXT NOT NULL,
@@ -36,8 +35,7 @@ def init_db() -> None:
             focus_percent INTEGER,
             ended_early INTEGER
         )
-        """
-    )
+        """)
     conn.commit()
     conn.close()
 
@@ -68,7 +66,7 @@ def create_session(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            datetime.utcnow().isoformat(),
+            datetime.now(timezone.utc).isoformat(),
             duration_minutes,
             email,
             phone,
@@ -108,7 +106,7 @@ def complete_session(
         WHERE id = ?
         """,
         (
-            datetime.utcnow().isoformat(),
+            datetime.now(timezone.utc).isoformat(),
             total_seconds,
             focused_seconds,
             unfocused_seconds,

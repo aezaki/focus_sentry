@@ -18,14 +18,71 @@ label {
     font-weight: 500;
 }
 
-.video-preview {
-    transform: scaleX(-1);
-}
-
 nav {
     margin-bottom: 1rem;
 }
 
 nav a {
     margin-right: 0.5rem;
+}
+
+.video-preview {
+    transform: scaleX(-1);
+    border: 3px solid transparent;
+    border-radius: 4px;
+    transition: border-color 0.2s ease;
+}
+
+/* focused and unfocused borders */
+.video-focused {
+    border-color: #16a34a;
+}
+
+.video-unfocused {
+    border-color: #dc2626;
+}
+
+/* banner container */
+.focus-banner {
+    margin: 0.5rem 0;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* different visual states for the banner */
+.banner-warning {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.banner-info {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.focus-banner.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.hidden {
+    display: none;
+}
+
+.history-filter-button {
+    margin-left: 0.3rem;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.history-filter-active {
+    font-weight: 600;
+    text-decoration: underline;
 }

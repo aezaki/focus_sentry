@@ -8,6 +8,11 @@ const focusStatus = document.getElementById("focus-status");
 const timerDisplay = document.getElementById("timer");
 const endButton = document.getElementById("end-session-button");
 const alertSound = document.getElementById("alert-sound");
+const liveStats = document.getElementById("live-stats");
+const focusBanner = document.getElementById("focus-banner");
+const saveDefaultsCheckbox = document.getElementById("save-defaults");
+
+const DEFAULTS_KEY = "focusSentryDefaults";
 
 let sessionId = null;
 let frameIntervalId = null;
@@ -17,7 +22,9 @@ let mediaStream = null;
 let currentState = "unknown";
 let lastStateChangeMs = null;
 let unfocusedStartMs = null;
+
 let alertTriggeredThisBreak = false;
+let inAlertState = false;
 
 let focusedMsTotal = 0;
 let unfocusedMsTotal = 0;
@@ -25,6 +32,73 @@ let breaksCount = 0;
 
 let UNFOCUSED_THRESHOLD_MS = 2500;
 let alertMode = "popup";
+
+let bannerTimeoutId = null;
+const BANNER_DISPLAY_MS = 3000;
+
+function loadDefaultsFromStorage() {
+    try {
+        const raw = localStorage.getItem(DEFAULTS_KEY);
+        if (!raw) {
+            return;
+        }
+        const defaults = JSON.parse(raw);
+
+        if (typeof defaults.duration === "number") {
+            form.duration.value = defaults.duration;
+        }
+        if (typeof defaults.alert_threshold === "number") {
+            form.alert_threshold.value = defaults.alert_threshold;
+        }
+        if (typeof defaults.alert_mode === "string") {
+            form.alert_mode.value = defaults.alert_mode;
+        }
+        if (typeof defaults.email === "string") {
+            form.email.value = defaults.email;
+        }
+        if (typeof defaults.phone === "string") {
+            form.phone.value = defaults.phone;
+        }
+        if (typeof defaults.send_email === "boolean") {
+            form.send_email.checked = defaults.send_email;
+        }
+        if (typeof defaults.send_sms === "boolean") {
+            form.send_sms.checked = defaults.send_sms;
+        }
+
+        if (saveDefaultsCheckbox) {
+            saveDefaultsCheckbox.checked = true;
+        }
+    } catch (err) {
+        console.error("Failed to load defaults from localStorage", err);
+    }
+}
+
+function saveDefaultsToStorage() {
+    try {
+        const duration = Number(form.duration.value);
+        const alertThreshold = Number(form.alert_threshold.value);
+        const alertModeValue = form.alert_mode.value;
+        const email = form.email.value || "";
+        const phone = form.phone.value || "";
+        const sendEmail = form.send_email.checked;
+        const sendSms = form.send_sms.checked;
+
+        const payload = {
+            duration: isNaN(duration) ? 60 : duration,
+            alert_threshold: isNaN(alertThreshold) ? 2.5 : alertThreshold,
+            alert_mode: alertModeValue,
+            email,
+            phone,
+            send_email: sendEmail,
+            send_sms: sendSms,
+        };
+
+        localStorage.setItem(DEFAULTS_KEY, JSON.stringify(payload));
+    } catch (err) {
+        console.error("Failed to save defaults to localStorage", err);
+    }
+}
 
 async function startCamera() {
     mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -37,14 +111,18 @@ async function startCamera() {
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const durationMinutes = Number(e.target.duration.value);
-    const email = e.target.email.value;
-    const phone = e.target.phone.value;
-    const alertThresholdSeconds = Number(e.target.alert_threshold.value);
-    const mode = e.target.alert_mode.value;
+    const durationMinutes = Number(form.duration.value);
+    const email = form.email.value;
+    const phone = form.phone.value;
+    const alertThresholdSeconds = Number(form.alert_threshold.value);
+    const mode = form.alert_mode.value;
 
-    const sendEmail = e.target.send_email.checked;
-    const sendSms = e.target.send_sms.checked;
+    const sendEmail = form.send_email.checked;
+    const sendSms = form.send_sms.checked;
+
+    if (saveDefaultsCheckbox && saveDefaultsCheckbox.checked) {
+        saveDefaultsToStorage();
+    }
 
     const formData = new FormData();
     formData.append("duration_minutes", durationMinutes);
@@ -105,12 +183,16 @@ function resetTracking() {
     lastStateChangeMs = Date.now();
     unfocusedStartMs = null;
     alertTriggeredThisBreak = false;
+    inAlertState = false;
 
     focusedMsTotal = 0;
     unfocusedMsTotal = 0;
     breaksCount = 0;
 
     focusStatus.textContent = "Focus state: unknown";
+    video.classList.remove("video-focused", "video-unfocused");
+    hideBanner();
+    updateLiveStats();
 }
 
 function startFrameLoop() {
@@ -194,17 +276,28 @@ function handleFocusState(isFocused) {
     if (isFocused) {
         if (currentState === "unfocused") {
             breaksCount += 1;
+
+            if (inAlertState) {
+                showBanner("Back on track. You are focused again.", "info");
+            }
+
             unfocusedStartMs = null;
             alertTriggeredThisBreak = false;
+            inAlertState = false;
         }
+
         currentState = "focused";
         focusStatus.textContent = "Focus state: focused";
+        video.classList.add("video-focused");
+        video.classList.remove("video-unfocused");
     } else {
         if (currentState !== "unfocused") {
             currentState = "unfocused";
             unfocusedStartMs = now;
             alertTriggeredThisBreak = false;
             focusStatus.textContent = "Focus state: unfocused";
+            video.classList.add("video-unfocused");
+            video.classList.remove("video-focused");
         } else {
             if (
                 !alertTriggeredThisBreak &&
@@ -212,18 +305,88 @@ function handleFocusState(isFocused) {
                 now - unfocusedStartMs >= UNFOCUSED_THRESHOLD_MS
             ) {
                 alertTriggeredThisBreak = true;
-                triggerAlert();
+                inAlertState = true;
+                triggerLostFocusAlert(now - unfocusedStartMs);
             }
         }
     }
 
     lastStateChangeMs = now;
+    updateLiveStats();
 }
 
-function triggerAlert() {
-    if (alertMode === "popup" || alertMode === "both") {
-        alert("You looked away longer than your alert threshold.");
+function updateLiveStats() {
+    const now = Date.now();
+
+    let focused = focusedMsTotal;
+    let unfocused = unfocusedMsTotal;
+
+    if (lastStateChangeMs !== null) {
+        const delta = now - lastStateChangeMs;
+        if (currentState === "focused") {
+            focused += delta;
+        } else if (currentState === "unfocused") {
+            unfocused += delta;
+        }
     }
+
+    const total = focused + unfocused;
+    const focusPercent =
+        total > 0 ? Math.round((focused / total) * 100) : 0;
+
+    liveStats.textContent =
+        "Focused: " +
+        focusPercent +
+        " percent so far, breaks: " +
+        breaksCount;
+}
+
+function showBanner(message, kind) {
+    if (!focusBanner) {
+        return;
+    }
+
+    if (bannerTimeoutId) {
+        clearTimeout(bannerTimeoutId);
+        bannerTimeoutId = null;
+    }
+
+    focusBanner.textContent = message;
+    focusBanner.classList.remove("hidden", "banner-warning", "banner-info", "visible");
+
+    if (kind === "warning") {
+        focusBanner.classList.add("banner-warning");
+    } else if (kind === "info") {
+        focusBanner.classList.add("banner-info");
+    }
+
+    requestAnimationFrame(() => {
+        focusBanner.classList.add("visible");
+    });
+
+    bannerTimeoutId = setTimeout(() => {
+        hideBanner();
+    }, BANNER_DISPLAY_MS);
+}
+
+function hideBanner() {
+    if (!focusBanner) {
+        return;
+    }
+
+    focusBanner.classList.remove("visible");
+    setTimeout(() => {
+        focusBanner.classList.add("hidden");
+        focusBanner.textContent = "";
+    }, 250);
+}
+
+function triggerLostFocusAlert(unfocusedDurationMs) {
+    const seconds = (unfocusedDurationMs / 1000).toFixed(1);
+    const message = "Lost focus for at least " + seconds + " seconds.";
+
+    showBanner(message, "warning");
+
     if (alertMode === "sound" || alertMode === "both") {
         if (alertSound) {
             alertSound.currentTime = 0;
@@ -343,3 +506,6 @@ function endSessionNow(endedEarly) {
             console.error("Failed to send session summary to backend", err);
         });
 }
+
+// load defaults once DOM is ready
+loadDefaultsFromStorage();

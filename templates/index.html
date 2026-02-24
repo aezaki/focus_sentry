@@ -60,6 +60,12 @@
         </label>
         <br />
 
+        <label>
+            <input type="checkbox" id="save-defaults" />
+            Save these settings as my default
+        </label>
+        <br />
+
         <button type="submit">Start focus session</button>
     </form>
 
@@ -67,6 +73,9 @@
         <h2>Session in progress</h2>
         <p id="timer">Time left: 0:00</p>
         <p id="focus-status">Focus state: unknown</p>
+        <p id="live-stats">Focused: 0 percent so far, breaks: 0</p>
+
+        <div id="focus-banner" class="focus-banner hidden"></div>
 
         <video id="video" class="video-preview" autoplay playsinline width="320" height="240"></video>
         <br />

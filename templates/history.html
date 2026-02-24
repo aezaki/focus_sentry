@@ -16,6 +16,11 @@
     <h2>Recent sessions</h2>
 
     {% if sessions and sessions|length > 0 %}
+        <p style="font-size: 0.9rem;">
+            The table shows your latest sessions. Use the filters below to see stats and a chart
+            for the last 7 days, last 30 days, or all loaded sessions.
+        </p>
+
         <table border="1" cellpadding="4" cellspacing="0">
             <thead>
                 <tr>
@@ -40,6 +45,21 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        <h3 style="margin-top: 1.5rem;">Stats</h3>
+
+        <div id="history-controls" style="margin-bottom: 0.8rem;">
+            <span>View stats for:</span>
+            <button type="button" data-range="7" class="history-filter-button">Last 7 days</button>
+            <button type="button" data-range="30" class="history-filter-button">Last 30 days</button>
+            <button type="button" data-range="all" class="history-filter-button history-filter-active">All</button>
+        </div>
+
+        <div id="history-summary" style="margin-bottom: 1rem; font-size: 0.95rem;">
+            <p id="range-label">Showing stats for: all loaded sessions</p>
+            <p id="avg-focus">Average focus: n/a</p>
+            <p id="best-session">Best session: n/a</p>
+        </div>
 
         <h3>Focus percentage over sessions</h3>
         <canvas id="focusChart" width="600" height="300"></canvas>

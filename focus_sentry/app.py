@@ -1,14 +1,14 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import FastAPI, Form, UploadFile, File
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
+from .database import complete_session, create_session, get_recent_sessions, init_db
 from .detector import classify_focus_state
-from .database import init_db, create_session, complete_session, get_recent_sessions
 from .notifier import send_email_summary, send_sms_summary
 
 app = FastAPI()
@@ -45,7 +45,7 @@ async def start_session(
     send_email_flag: Optional[bool] = Form(False),
     send_sms_flag: Optional[bool] = Form(False),
 ):
-    ends_at = datetime.utcnow() + timedelta(minutes=duration_minutes)
+    ends_at = datetime.now(timezone.utc) + timedelta(minutes=duration_minutes)
     alert_threshold_ms = int(alert_threshold * 1000)
 
     send_email_bool = bool(send_email_flag) and bool(email)
@@ -73,7 +73,7 @@ async def start_session(
 @app.post("/frame")
 async def process_frame(
     session_id: int = Form(...),
-    frame: UploadFile = File(...),
+    frame: UploadFile = File(...),  # noqa: B008
 ):
     data = await frame.read()
     focused = classify_focus_state(data)
