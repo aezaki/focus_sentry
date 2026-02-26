@@ -15,8 +15,8 @@ This project demonstrates structured Python backend design, computer vision usin
 7. SMS Setup (Twilio Free Tier)  
 8. Project Structure  
 9. Screenshots  
-10. Development Notes  
-11. License
+ 10. Development Notes  
+ 11. License
 
 ## 1. Overview
 Focus Sentry uses your webcam to estimate attention by combining face detection, eye openness checks, and head pose orientation.  
@@ -40,29 +40,29 @@ At the end of the session, a summary is displayed and can optionally be sent via
 
 Clone the repository:
 
-	```bash
-	git clone https://github.com/yourusername/focus_sentry.git
-	cd focus_sentry
-	```
+```bash
+git clone https://github.com/yourusername/focus_sentry.git
+cd focus_sentry
+```
 
 Create and activate a virtual environment:
 
-	```bash
-	python3 -m venv venv
-	source venv/bin/activate
-	```
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
 
 Install dependencies:
 
-	```bash
-	pip install -r requirements.txt
-	```
+```bash
+pip install -r requirements.txt
+```
 
 Create your environment file:
 	
-	```bash
-	cp .env.example .env
-	```
+```bash
+cp .env.example .env
+```
 
 Edit `.env` and fill in your SMTP and optional Twilio values.
 
@@ -70,34 +70,35 @@ Edit `.env` and fill in your SMTP and optional Twilio values.
 
 Run the app using uvicorn:
 
-	```bash
-	uvicorn focus_sentry.app:app –reload
-	```
+```bash
+uvicorn focus_sentry.app:app –reload
+```
 
 Open your browser: 
-	```bash
-	http://127.0.0.1:8000
-	```
+```bash
+http://127.0.0.1:8000
+```
 
 ## 5. Environment Variables
 
 These values are stored in `.env`:
 
-	```bash
-	# SMTP configuration:
-	FOCUS_SMTP_HOST=smtp.gmail.com
-	FOCUS_SMTP_PORT=587
-	FOCUS_SMTP_USERNAME=your_email@gmail.com
-	FOCUS_SMTP_PASSWORD=your_google_app_password
-	FOCUS_SMTP_USE_TLS=true
-	FOCUS_EMAIL_FROM=“Focus Sentry your_email@gmail.com￼”
+```bash
+# SMTP configuration:
+FOCUS_SMTP_HOST=smtp.gmail.com
+FOCUS_SMTP_PORT=587
+FOCUS_SMTP_USERNAME=your_email@gmail.com
+FOCUS_SMTP_PASSWORD=your_google_app_password
+FOCUS_SMTP_USE_TLS=true
+FOCUS_EMAIL_FROM=“Focus Sentry your_email@gmail.com￼”
 
-	# Twilio SMS (optional)
+# Twilio SMS (optional)
 
-	TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-	TWILIO_AUTH_TOKEN=your_twilio_auth_token
-	TWILIO_FROM_NUMBER=+12345550123
-	```
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_FROM_NUMBER=+12345550123
+```
+
 ## 6. Email Setup (Gmail SMTP)
 
 To use Gmail as the email sender:
@@ -130,24 +131,41 @@ This activates SMS summaries during focus sessions.
 
 ## 8. Project Structure
 
+```
 focus_sentry/
-    app.py
-    detector.py
-    database.py
-    notifier.py
-    static/
-        main.js
-        styles.css
-        alert-beep.mp3
-    templates/
-        index.html
-        history.html
-    tests/
-        test_start_session.py
-        test_end_session.py
-.env.example
-requirements.txt
-README.md
+│
+├── focus_sentry/
+│   ├── detector.py           # ONNX based face and eye state analysis
+│   ├── database.py           # SQLite session storage and helpers
+│   ├── notifier.py           # Email and SMS summary services
+│   ├── app.py                # FastAPI application and endpoints
+│   └── __init__.py
+│
+├── static/
+│   ├── main.js               # Frontend frame capture and UI logic
+│   ├── styles.css            # Layout, animations, banners, colors
+│   └── alert-beep.mp3        # Optional alert sound
+│
+├── templates/
+│   ├── index.html            # Main UI for running sessions
+│   └── history.html          # Session history + analytics
+│
+├── tests/
+│   ├── test_start_session.py
+│   └── test_end_session.py
+│
+├── docs/
+│   ├── architecture.md       # Backend, UI, and detector architecture
+│   ├── sms_setup.md          # Twilio setup guide
+│   └── email_setup.md        # SMTP configuration guide
+│
+├── requirements.txt
+├── requirements-dev.txt
+├── .env.example
+├── README.md
+├── pyproject.toml
+└── .gitignore
+```
 
 ## 9. Screenshots
 
@@ -156,6 +174,7 @@ README.md
 
 ### Focus Detection  
 ![Focused](docs/images/focused.png)  
+
 ![Unfocused](docs/images/unfocused.png)
 
 ### Session History  
