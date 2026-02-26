@@ -1,56 +1,186 @@
 # Focus Sentry
 
-Focus Sentry is a small Python web app that uses your webcam to track whether you are looking at the screen during a focus session.
+Focus Sentry is an AI powered focus tracking tool that uses your webcam to measure screen attention in real time.  
+It detects whether your eyes and head remain oriented toward the display, alerts you when you drift, logs detailed session data, and sends optional email or SMS summaries.
 
-If you look away for longer than a configurable threshold, it alerts you with a popup, a sound, or both. At the end of the session it summarizes how much of the time you stayed focused, stores the result, and can send you an email or SMS summary.
+This project demonstrates structured Python backend design, computer vision using ONNX Runtime, a real time browser UI, persistent session history, and optional external integrations.
 
-## Features
+## Table of Contents
+1. Overview  
+2. Features  
+3. Installation  
+4. Running the App  
+5. Environment Variables  
+6. Email Setup (Gmail SMTP)  
+7. SMS Setup (Twilio Free Tier)  
+8. Project Structure  
+9. Screenshots  
+10. Development Notes  
+11. License
 
-- Start focus sessions with configurable duration
-- Browser based webcam tracking using MediaPipe Face Mesh
-- Real time detection of "focused" vs "not focused"
-- Alerts on loss of focus after a threshold number of seconds
-- End session early button with correct statistics
-- Session summaries with focus percentage and break count
-- Optional email and SMS summaries
-- SQLite backed session history
-- History page with focus percentage chart
+## 1. Overview
+Focus Sentry uses your webcam to estimate attention by combining face detection, eye openness checks, and head pose orientation.  
+If the user looks away longer than the configured threshold, an alert is shown and unfocused time is recorded.  
+At the end of the session, a summary is displayed and can optionally be sent via email or SMS.
 
-## Tech stack
+## 2. Features
+- Web interface with live webcam view  
+- Eye openness and head pose based attention classification  
+- Real time visual and sound alerts  
+- Green and red live focus indicators  
+- Live tracking of focused and unfocused time  
+- Session summary with total time, breaks, focus percent  
+- Email and SMS summary delivery  
+- LocalStorage based user defaults  
+- Session history and analytics  
+- SQLite storage  
+- Clean project organization with tests and linting
 
-- Backend: FastAPI, SQLite, OpenCV, MediaPipe
-- Frontend: vanilla HTML and JavaScript
-- Notifications: SMTP email, Twilio SMS
+## 3. Installation
 
-## Running locally
+Clone the repository:
 
-1. Create and activate a virtual environment  
-2. Install dependencies:
+	```bash
+	git clone https://github.com/yourusername/focus_sentry.git
+	cd focus_sentry
+	```
 
-   ```bash
-   pip install -r requirements.txt
+Create and activate a virtual environment:
 
-3.	Run the app:
-    ```bash
-    uvicorn focus_sentry.app:app --reload
+	```bash
+	python3 -m venv venv
+	source venv/bin/activate
+	```
 
-4.	Open http://127.0.0.1:8000 in your browser.
+Install dependencies:
 
-## Configuration
+	```bash
+	pip install -r requirements.txt
+	```
 
-Email sending uses these environment variables:
-	•	FOCUS_SMTP_HOST
-	•	FOCUS_SMTP_PORT
-	•	FOCUS_SMTP_USER
-	•	FOCUS_SMTP_PASSWORD
-	•	FOCUS_FROM_EMAIL
+Create your environment file:
+	
+	```bash
+	cp .env.example .env
+	```
 
-SMS sending uses Twilio and these environment variables:
-	•	FOCUS_TWILIO_ACCOUNT_SID
-	•	FOCUS_TWILIO_AUTH_TOKEN
-	•	FOCUS_TWILIO_FROM_NUMBER
+Edit `.env` and fill in your SMTP and optional Twilio values.
 
-If these are not set, the app logs what it would send instead of failing.
+## 4. Running the App
+
+Run the app using uvicorn:
+
+	```bash
+	uvicorn focus_sentry.app:app –reload
+	```
+
+Open your browser: 
+	```bash
+	http://127.0.0.1:8000
+	```
+
+## 5. Environment Variables
+
+These values are stored in `.env`:
+
+	```bash
+	# SMTP configuration:
+	FOCUS_SMTP_HOST=smtp.gmail.com
+	FOCUS_SMTP_PORT=587
+	FOCUS_SMTP_USERNAME=your_email@gmail.com
+	FOCUS_SMTP_PASSWORD=your_google_app_password
+	FOCUS_SMTP_USE_TLS=true
+	FOCUS_EMAIL_FROM=“Focus Sentry your_email@gmail.com￼”
+
+	# Twilio SMS (optional)
+
+	TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+	TWILIO_AUTH_TOKEN=your_twilio_auth_token
+	TWILIO_FROM_NUMBER=+12345550123
+	```
+## 6. Email Setup (Gmail SMTP)
+
+To use Gmail as the email sender:
+
+1. Turn on Two Factor Authentication in your Google account  
+2. Go to *Security > App passwords*  
+3. Create an App Password with type “Mail”  
+4. Copy the 16 character password into `FOCUS_SMTP_PASSWORD`  
+5. Use your full Gmail address for `FOCUS_SMTP_USERNAME`  
+6. Keep TLS enabled
+
+After this, Focus Sentry can send email summaries.
+
+## 7. SMS Setup (Twilio Free Tier)
+
+Twilio free trial lets you test SMS at no cost, with these restrictions:
+
+- You can only text verified numbers  
+- Messages include a “Sent from a Twilio trial account” prefix
+
+Setup:
+
+1. Create a Twilio trial account  
+2. Obtain a free trial phone number  
+3. Verify your personal phone number  
+4. Add SID, Auth Token, and trial phone number into `.env`  
+5. Enable “Send SMS summary” in the app interface
+
+This activates SMS summaries during focus sessions.
+
+## 8. Project Structure
+
+focus_sentry/
+    app.py
+    detector.py
+    database.py
+    notifier.py
+    static/
+        main.js
+        styles.css
+        alert-beep.mp3
+    templates/
+        index.html
+        history.html
+    tests/
+        test_start_session.py
+        test_end_session.py
+.env.example
+requirements.txt
+README.md
+
+## 9. Screenshots
+
+### Dashboard  
+![Dashboard](docs/images/dashboard.png)
+
+### Focus Detection  
+![Focused](docs/images/focused.png)  
+![Unfocused](docs/images/unfocused.png)
+
+### Session History  
+![History](docs/images/history.png)
+
+### Email Summary  
+![Email](docs/images/email.png)
+
+### SMS Summary  
+![SMS](docs/images/sms.png)
+
+## 10. Development Notes
+
+- Uses ONNX Runtime for lightweight inference  
+- Attention classification combines eye openness and head orientation  
+- LocalStorage used for user defaults without authentication  
+- Ruff and Black enforce consistent style  
+- Tests validate session creation and completion  
+- SQLite provides easy portability and inspection  
+- Clean folder structure for readability and maintainability
+
+## 11. License
+
+MIT License  
+Copyright (c) 2026 Andrew Zaki
 
 ## Privacy note
 

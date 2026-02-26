@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,6 +12,7 @@ from .database import complete_session, create_session, get_recent_sessions, ini
 from .detector import classify_focus_state
 from .notifier import send_email_summary, send_sms_summary
 
+load_dotenv()  # loads variables from .env into os.environ
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -27,7 +29,6 @@ async def index(request: Request):
 @app.get("/history", response_class=HTMLResponse)
 async def history(request: Request):
     sessions = get_recent_sessions(limit=50)
-    # convert to plain dicts for Jinja simplicity
     sessions_list = [dict(row) for row in sessions]
     return templates.TemplateResponse(
         "history.html",
@@ -92,7 +93,7 @@ async def end_session(
 ):
     ended_flag = ended_early.lower() == "true"
 
-    session = complete_session(
+    session_row = complete_session(
         session_id=session_id,
         total_seconds=total_seconds,
         focused_seconds=focused_seconds,
@@ -101,30 +102,37 @@ async def end_session(
         focus_percent=focus_percent,
         ended_early=ended_flag,
     )
-    if session is None:
+    if session_row is None:
         return {"ok": False, "error": "Session not found"}
 
-    send_email = bool(session["send_email"])
-    send_sms = bool(session["send_sms"])
+    # work with a plain dict so we can enrich it for the notifier
+    session = dict(session_row)
+
+    send_email = bool(session.get("send_email"))
+    send_sms = bool(session.get("send_sms"))
+
+    # provide the flags that notifier expects, in addition to the DB fields
+    session["send_email_flag"] = 1 if send_email else 0
+    session["send_sms_flag"] = 1 if send_sms else 0
 
     if send_email:
         send_email_summary(session)
     if send_sms:
         send_sms_summary(session)
 
-    total = session["total_seconds"] or 0
-    focused = session["focused_seconds"] or 0
-    unfocused = session["unfocused_seconds"] or 0
-    breaks_val = session["breaks_count"] or 0
-    fp = session["focus_percent"] or 0
+    total_val = session.get("total_seconds") or 0
+    focused_val = session.get("focused_seconds") or 0
+    unfocused_val = session.get("unfocused_seconds") or 0
+    breaks_val = session.get("breaks_count") or 0
+    fp_val = session.get("focus_percent") or 0
 
     return {
         "ok": True,
-        "session_id": session["id"],
-        "total_seconds": total,
-        "focused_seconds": focused,
-        "unfocused_seconds": unfocused,
+        "session_id": session.get("id"),
+        "total_seconds": total_val,
+        "focused_seconds": focused_val,
+        "unfocused_seconds": unfocused_val,
         "breaks_count": breaks_val,
-        "focus_percent": fp,
-        "ended_early": bool(session["ended_early"]),
+        "focus_percent": fp_val,
+        "ended_early": bool(session.get("ended_early")),
     }

@@ -30,6 +30,12 @@ let focusedMsTotal = 0;
 let unfocusedMsTotal = 0;
 let breaksCount = 0;
 
+let focusedRunFrames = 0;
+let unfocusedRunFrames = 0;
+
+const FOCUS_DEBOUNCE_FRAMES = 2;
+const UNFOCUS_DEBOUNCE_FRAMES = 3;
+
 let UNFOCUSED_THRESHOLD_MS = 2500;
 let alertMode = "popup";
 
@@ -189,6 +195,9 @@ function resetTracking() {
     unfocusedMsTotal = 0;
     breaksCount = 0;
 
+    focusedRunFrames = 0;
+    unfocusedRunFrames = 0;
+
     focusStatus.textContent = "Focus state: unknown";
     video.classList.remove("video-focused", "video-unfocused");
     video.style.borderColor = "transparent";
@@ -260,7 +269,7 @@ function captureFrameBlob() {
     });
 }
 
-function handleFocusState(isFocused) {
+function handleFocusState(isFocusedRaw) {
     const now = Date.now();
 
     if (lastStateChangeMs === null) {
@@ -272,6 +281,28 @@ function handleFocusState(isFocused) {
         focusedMsTotal += delta;
     } else if (currentState === "unfocused") {
         unfocusedMsTotal += delta;
+    }
+
+    // update run-length counters based on raw classifier output
+    if (isFocusedRaw) {
+        focusedRunFrames += 1;
+        unfocusedRunFrames = 0;
+    } else {
+        unfocusedRunFrames += 1;
+        focusedRunFrames = 0;
+    }
+
+    // smoothed decision:
+    // when currently focused, require several bad frames before flipping to unfocused
+    // when currently unfocused or unknown, require several good frames before flipping to focused
+    let isFocused;
+    if (currentState === "focused") {
+        isFocused = unfocusedRunFrames < UNFOCUS_DEBOUNCE_FRAMES;
+    } else if (currentState === "unfocused") {
+        isFocused = focusedRunFrames >= FOCUS_DEBOUNCE_FRAMES;
+    } else {
+        // unknown state at start, be optimistic but wait for a couple of good frames
+        isFocused = focusedRunFrames >= FOCUS_DEBOUNCE_FRAMES;
     }
 
     if (isFocused) {

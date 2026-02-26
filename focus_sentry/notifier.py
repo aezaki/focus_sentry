@@ -1,95 +1,198 @@
+# focus_sentry/notifier.py
+
 import os
 import smtplib
 from email.message import EmailMessage
-from sqlite3 import Row
+from typing import Any, Optional
 
 from twilio.rest import Client
 
 
-def send_email_summary(session: Row) -> None:
-    email = session["email"]
-    if not email:
+def _safe_get(row: Any, key: str, default: Any = None) -> Any:
+    """
+    Helper that works with sqlite3.Row or plain dict.
+    """
+    try:
+        if isinstance(row, dict):
+            return row.get(key, default)
+        return row[key]
+    except Exception:
+        return default
+
+
+# ---------- Email ----------
+
+
+def _get_smtp_config() -> Optional[dict]:
+    """
+    Read SMTP configuration from environment variables.
+    Returns a dict if configuration looks complete, otherwise None.
+    """
+
+    host = os.getenv("FOCUS_SMTP_HOST")
+    port = os.getenv("FOCUS_SMTP_PORT")
+    user = os.getenv("FOCUS_SMTP_USERNAME")
+    password = os.getenv("FOCUS_SMTP_PASSWORD")
+    from_addr = os.getenv("FOCUS_EMAIL_FROM")
+    use_tls = os.getenv("FOCUS_SMTP_USE_TLS", "true").lower() in {"1", "true", "yes"}
+
+    if not host or not port or not from_addr:
+        return None
+
+    try:
+        port_int = int(port)
+    except ValueError:
+        return None
+
+    return {
+        "host": host,
+        "port": port_int,
+        "user": user,
+        "password": password,
+        "from_addr": from_addr,
+        "use_tls": use_tls,
+    }
+
+
+def _build_session_summary_text(session: Any) -> str:
+    """
+    Build a plain text summary from a session row.
+    Works even if some fields are missing.
+    """
+    created_at = _safe_get(session, "created_at", "unknown start time")
+    duration_minutes = _safe_get(session, "duration_minutes", None)
+
+    total_seconds = _safe_get(session, "total_seconds", None)
+    focused_seconds = _safe_get(session, "focused_seconds", None)
+    unfocused_seconds = _safe_get(session, "unfocused_seconds", None)
+    focus_percent = _safe_get(session, "focus_percent", None)
+    breaks_count = _safe_get(session, "breaks_count", None)
+    ended_early = bool(_safe_get(session, "ended_early", 0))
+
+    parts = []
+
+    parts.append(f"Session started at: {created_at}")
+    if duration_minutes is not None:
+        parts.append(f"Planned duration: {duration_minutes} minute(s)")
+
+    if total_seconds is not None:
+        parts.append(f"Total time recorded: {total_seconds} second(s)")
+    if focused_seconds is not None:
+        parts.append(f"Time focused: {focused_seconds} second(s)")
+    if unfocused_seconds is not None:
+        parts.append(f"Time unfocused: {unfocused_seconds} second(s)")
+    if focus_percent is not None:
+        parts.append(f"Focus percentage: {focus_percent} percent")
+    if breaks_count is not None:
+        parts.append(f"Number of breaks: {breaks_count}")
+
+    parts.append(f"Ended early: {'Yes' if ended_early else 'No'}")
+
+    return "\n".join(parts)
+
+
+def send_email_summary(session: Any) -> None:
+    """
+    Send an email summary for the given session row.
+    If configuration or recipient is missing, fall back to printing a log line.
+    """
+
+    email = _safe_get(session, "email", "").strip()
+    send_email_flag = _safe_get(session, "send_email_flag", 0)
+
+    if not email or not send_email_flag:
+        # user did not request email or has no address
         return
 
-    smtp_host = os.environ.get("FOCUS_SMTP_HOST")
-    smtp_port = os.environ.get("FOCUS_SMTP_PORT")
-    smtp_user = os.environ.get("FOCUS_SMTP_USER")
-    smtp_password = os.environ.get("FOCUS_SMTP_PASSWORD")
-    from_email = os.environ.get("FOCUS_FROM_EMAIL", smtp_user)
+    summary_text = _build_session_summary_text(session)
 
-    if not (smtp_host and smtp_port and smtp_user and smtp_password and from_email):
-        print(f"[focus_sentry] Email config missing, would send summary to {email}")
+    cfg = _get_smtp_config()
+    if not cfg:
+        print(
+            f"[focus_sentry] Email config missing, would send summary to {email}:\n"
+            f"{summary_text}\n"
+        )
         return
-
-    total = session["total_seconds"] or 0
-    focused = session["focused_seconds"] or 0
-    unfocused = session["unfocused_seconds"] or 0
-    breaks_count = session["breaks_count"] or 0
-
-    focus_percent = 0
-    if total:
-        focus_percent = round(focused / total * 100)
-
-    ended_at = session["ended_at"]
-    ended_early = bool(session["ended_early"])
-
-    prefix = "Session ended early." if ended_early else "Session completed."
 
     msg = EmailMessage()
     msg["Subject"] = "Your Focus Sentry session summary"
-    msg["From"] = from_email
+    msg["From"] = cfg["from_addr"]
     msg["To"] = email
+    msg.set_content(summary_text)
 
-    body = (
-        f"{prefix}\n\n"
-        f"Ended at: {ended_at}\n"
-        f"Total time: {total} seconds\n"
-        f"Focused: {focused} seconds\n"
-        f"Unfocused: {unfocused} seconds\n"
-        f"Focus percentage: {focus_percent} percent\n"
-        f"Breaks: {breaks_count}\n"
-    )
-    msg.set_content(body)
+    try:
+        if cfg["use_tls"]:
+            with smtplib.SMTP(cfg["host"], cfg["port"]) as server:
+                server.starttls()
+                if cfg["user"] and cfg["password"]:
+                    server.login(cfg["user"], cfg["password"])
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP(cfg["host"], cfg["port"]) as server:
+                if cfg["user"] and cfg["password"]:
+                    server.login(cfg["user"], cfg["password"])
+                server.send_message(msg)
 
-    with smtplib.SMTP_SSL(smtp_host, int(smtp_port)) as smtp:
-        smtp.login(smtp_user, smtp_password)
-        smtp.send_message(msg)
+        print(f"[focus_sentry] Email summary sent to {email}")
+    except Exception as exc:
+        print(f"[focus_sentry] Failed to send email to {email}: {exc}")
+        print("[focus_sentry] Summary content was:")
+        print(summary_text)
 
 
-def send_sms_summary(session: Row) -> None:
-    phone = session["phone"]
-    if not phone:
+# ---------- SMS via Twilio ----------
+
+
+def _get_twilio_client() -> Optional[Client]:
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+
+    if not account_sid or not auth_token:
+        return None
+
+    try:
+        return Client(account_sid, auth_token)
+    except Exception:
+        return None
+
+
+def _get_twilio_from_number() -> Optional[str]:
+    from_number = os.getenv("TWILIO_FROM_NUMBER")
+    return from_number.strip() if from_number else None
+
+
+def send_sms_summary(session: Any) -> None:
+    """
+    Send an SMS summary for the given session row using Twilio.
+    If configuration or recipient is missing, fall back to logging.
+    """
+
+    phone = _safe_get(session, "phone", "").strip()
+    send_sms_flag = _safe_get(session, "send_sms_flag", 0)
+
+    if not phone or not send_sms_flag:
         return
 
-    account_sid = os.environ.get("FOCUS_TWILIO_ACCOUNT_SID")
-    auth_token = os.environ.get("FOCUS_TWILIO_AUTH_TOKEN")
-    from_number = os.environ.get("FOCUS_TWILIO_FROM_NUMBER")
+    summary_text = _build_session_summary_text(session)
 
-    if not (account_sid and auth_token and from_number):
-        print(f"[focus_sentry] SMS config missing, would send SMS to {phone}")
+    client = _get_twilio_client()
+    from_number = _get_twilio_from_number()
+
+    if not client or not from_number:
+        print(
+            f"[focus_sentry] SMS config missing, would send SMS summary to {phone}:\n"
+            f"{summary_text}\n"
+        )
         return
 
-    total = session["total_seconds"] or 0
-    focused = session["focused_seconds"] or 0
-    unfocused = session["unfocused_seconds"] or 0
-    breaks_count = session["breaks_count"] or 0
-
-    focus_percent = 0
-    if total:
-        focus_percent = round(focused / total * 100)
-
-    ended_early = bool(session["ended_early"])
-    prefix = "Session ended early." if ended_early else "Session completed."
-
-    body = (
-        f"{prefix} "
-        f"Total {total}s, focused {focused}s, unfocused {unfocused}s, "
-        f"focus {focus_percent} percent, breaks {breaks_count}."
-    )
-
-    client = Client(account_sid, auth_token)
-    client.messages.create(
-        body=body,
-        from_=from_number,
-        to=phone,
-    )
+    try:
+        message = client.messages.create(
+            body=summary_text,
+            from_=from_number,
+            to=phone,
+        )
+        print(f"[focus_sentry] SMS summary sent to {phone}, Twilio SID: {message.sid}")
+    except Exception as exc:
+        print(f"[focus_sentry] Failed to send SMS to {phone}: {exc}")
+        print("[focus_sentry] SMS summary content would have been:")
+        print(summary_text)
